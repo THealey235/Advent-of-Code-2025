@@ -36,7 +36,7 @@ namespace Day_2
                 for (long pID = range[0]; pID <= range[1]; pID++)
                 {
                     ID = pID.ToString();
-                    if (ID.Length % 2 == 1) //if it has an odd number of chars it cannot fit the pattern
+                    if (ID.Length % 2 == 1) //if it the length is not divisible by 2 it cannot fit the pattern
                         continue;
 
                     chunkLength = ID.Length / 2;
@@ -61,6 +61,9 @@ namespace Day_2
                     ID = pID.ToString();
                     for (int i = ID.Length / 2; i > 0; i--)
                     {
+                        if (ID.Length % i != 0)//same schtick as Part 1
+                            continue;
+
                         if (ID.Chunk(i).Select(x => new string(x)).ToArray().Distinct().Count() != 1)
                             continue;
                         output += pID;
