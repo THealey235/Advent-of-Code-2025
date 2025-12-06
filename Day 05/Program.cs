@@ -54,7 +54,7 @@ namespace Day_05
             bool addRange;
             List<Range> usedRanges = new List<Range>();
 
-            QuickSort(ranges, 0, ranges.Count - 1);
+            QuickSort(ranges, 0, ranges.Count - 1); //sort ranges by their minimum value
 
             foreach (var range in ranges)
             {
