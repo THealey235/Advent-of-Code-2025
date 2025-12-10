@@ -83,7 +83,6 @@ namespace Day_05
 
         static int Partition(List<Range> arr, int low, int high)
         {
-
             var pivot = arr[high].Min;
 
             var i = low - 1;
