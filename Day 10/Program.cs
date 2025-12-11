@@ -1,6 +1,5 @@
 ﻿using System.Diagnostics;
-using MathNet.Numerics;
-using MathNet.Numerics.LinearAlgebra.Complex;
+using Microsoft.Z3;
 
 namespace Day_10
 {
@@ -69,24 +68,65 @@ namespace Day_10
             return output;
         }
 
+        //this would have probably been easier in python using the official tutorial
         static long Part2(List<MachineInfo> input)
         {
             long output = 0;
-            int maxDepth;
-            int i = 1;
-            var Build = MathNet.Numerics.LinearAlgebra.Matrix<double>.Build.DenseOfArray;
-
+            var processed = 0;
+            
             foreach (var machine in input)
             {
-                //https://www.youtube.com/watch?v=Jqg7JgCwQrk
-                //equation: xA = B => ATy = Bt, where y = xT and (matrix)T = matrix.Transpose()
-                var y = Build(machine.OrganisedButtons).Transpose().PseudoInverse() * Build(machine.OrganisedJoltages).Transpose();
+                using (Context c = new Context())
+                {
+                    Solver solver = c.MkSolver();
+                    var zero = c.MkInt(0);
 
-                //https://stackoverflow.com/questions/38804780/find-integer-solutions-to-a-set-of-equations-with-more-unknowns-than-equations
+                    //setting up coefficients (how many times a button is pressed) 
+                    var presses = new IntExpr[machine.Buttons.Count];
+                    for (int i = 0; i < machine.Buttons.Count; i++)
+                        presses[i] = c.MkIntConst($"x{i}");
 
+                    //setting equations describing which joltages a button increases
+                    var equations = new List<IntExpr[]>();
+                    for (int i = 0; i < machine.Joltages.Count; i++)
+                    {
+                        var tempList = new List<IntExpr>();
+                        for (int j = 0; j < machine.Buttons.Count; j++)
+                        {
+                            if (machine.Buttons[j].Contains(i))
+                                tempList.Add(presses[j]);
+                        }
+                        equations.Add(tempList.ToArray());
+                    }
 
+                    for (int i = 0; i < machine.Joltages.Count; i++)
+                        solver.Add(c.MkEq(c.MkAdd(equations[i]), c.MkInt(machine.Joltages[i])));
 
-                output += 1;
+                    //restrict domains to non-negative integers
+                    foreach (var variable in presses)
+                        solver.Add(c.MkGe(variable, zero));
+
+                    var solutions = new List<List<int>>();
+                    while (solver.Check() == Status.SATISFIABLE)
+                    {
+                        var solution = new List<int>();
+                        var model = solver.Model;
+                        foreach (var press in presses)
+                            solution.Add(int.Parse(model.Evaluate(press).ToString()));
+
+                        solutions.Add(solution);
+
+                        //block this solution
+                        var blocks = new BoolExpr[solution.Count];
+                        for (int i = 0; i < solution.Count; i++)
+                            blocks[i] = c.MkNot(c.MkEq(presses[i], c.MkInt(solution[i])));
+                        solver.Add(c.MkOr(blocks));
+                    }
+
+                    output += solutions.Min(x => x.Sum());
+                    processed++;
+                    Console.WriteLine($"Processed: {processed}/{input.Count}");
+                }
             }
 
             return output;
@@ -99,32 +139,6 @@ namespace Day_10
         public List<bool> Lights;
         public List<List<int>> Buttons;
         public List<int> Joltages;
-
-        public double[,] OrganisedButtons
-        {
-            get
-            {
-                var length = Buttons.Aggregate(0, (a, x) => x.Max() > a ? x.Max() : a) + 1;
-                var buttons = new double[Buttons.Count, length];
-
-                for (int i = 0; i < length; i++)
-                    Buttons[i].ForEach(x => buttons[x, i] = 1);
-
-                return buttons;
-            }
-        }
-
-        public double[,] OrganisedJoltages
-        {
-            get
-            {
-                var joltages = new double[1, Joltages.Count];
-                for (int i = 0; i < Joltages.Count; i++)
-                    joltages[0, i] = Joltages[i];
-
-                return joltages;
-            }
-        }
 
         public MachineInfo(string line)
         {
