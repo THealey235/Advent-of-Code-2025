@@ -1,5 +1,6 @@
 ﻿using System.Diagnostics;
-using System.Runtime.ExceptionServices;
+using MathNet.Numerics;
+using MathNet.Numerics.LinearAlgebra.Complex;
 
 namespace Day_10
 {
@@ -73,98 +74,24 @@ namespace Day_10
             long output = 0;
             int maxDepth;
             int i = 1;
+            var Build = MathNet.Numerics.LinearAlgebra.Matrix<double>.Build.DenseOfArray;
 
             foreach (var machine in input)
             {
-                Memo.Clear();
-                maxDepth = 0;
+                //https://www.youtube.com/watch?v=Jqg7JgCwQrk
+                //equation: xA = B => ATy = Bt, where y = xT and (matrix)T = matrix.Transpose()
+                var y = Build(machine.OrganisedButtons).Transpose().PseudoInverse() * Build(machine.OrganisedJoltages).Transpose();
 
-                //DFS, because the buttons are sorted so that the buttons with the most conections are at the start they are tried first.
-                CheckPath(machine.Joltages, machine.Buttons, Enumerable.Repeat(0, machine.Buttons.Count).ToList(), 0, ref maxDepth);
-                Console.WriteLine($"Processed: {i}/{input.Count}");
-                i++;
-                output += maxDepth;
+                //https://stackoverflow.com/questions/38804780/find-integer-solutions-to-a-set-of-equations-with-more-unknowns-than-equations
+
+
+
+                output += 1;
             }
 
             return output;
         }
 
-        static List<List<int>> Memo = new List<List<int>>();
-        static List<int> target = new List<int>() { 1, 3, 0, 3, 1, 2};
-
-        public static bool CheckPath(List<int> joltages, List<List<int>> buttons, List<int> pressed, int depth, ref int maxDepth)
-        {
-            var x = 0;
-            if (pressed.SequenceEqual(target))
-                x = 1;
-
-            foreach (var list in Memo)
-            {
-                if (list.SequenceEqual(pressed))
-                    return false;
-            }
-
-            var jolts = Enumerable.Repeat(0, joltages.Count).ToList();
-            for (int i = 0; i < buttons.Count; i++)
-            {
-                buttons[i].ForEach(x => jolts[x] += pressed[i]);
-            }
-
-            var flag = true;
-            for (int i = 0; i < joltages.Count; i++)
-            {
-                if (joltages[i] < jolts[i])
-                    return false;
-                if (joltages[i] > jolts[i])
-                    flag = false;
-            }
-
-            if (flag)
-            {
-                maxDepth = depth;
-                return true;
-            }
-
-            for (int i = 0; i < buttons.Count; i++)
-            {
-                var newPressed = new List<int>(pressed);
-                newPressed[i]++;
-                if (CheckPath(joltages, buttons, newPressed, depth + 1, ref maxDepth))
-                    return true;
-                Memo.Add(newPressed);
-            }
-
-            return false;
-        }
-
-        public static void QuickSort(List<List<int>> buttons, int low, int high)
-        {
-            if (low < high)
-            {
-                var p = Partition(buttons, low, high);
-                QuickSort(buttons, low, p - 1);
-                QuickSort(buttons, p + 1, high);
-            }
-
-        }
-
-        public static int Partition(List<List<int>> buttons, int low, int high)
-        {
-            var pivot = buttons[high].Count;
-            var l = low - 1;
-
-            for (int r = low; r < high; r++)
-            {
-                if (buttons[r].Count >= pivot)
-                {
-                    l++;
-                    (buttons[l], buttons[r]) = (buttons[r], buttons[l]);
-                }
-            }
-
-            (buttons[l + 1], buttons[high]) = (buttons[high], buttons[l + 1]);
-            return l + 1;
-        }
     }
 
     public class MachineInfo
@@ -172,6 +99,32 @@ namespace Day_10
         public List<bool> Lights;
         public List<List<int>> Buttons;
         public List<int> Joltages;
+
+        public double[,] OrganisedButtons
+        {
+            get
+            {
+                var length = Buttons.Aggregate(0, (a, x) => x.Max() > a ? x.Max() : a) + 1;
+                var buttons = new double[Buttons.Count, length];
+
+                for (int i = 0; i < length; i++)
+                    Buttons[i].ForEach(x => buttons[x, i] = 1);
+
+                return buttons;
+            }
+        }
+
+        public double[,] OrganisedJoltages
+        {
+            get
+            {
+                var joltages = new double[1, Joltages.Count];
+                for (int i = 0; i < Joltages.Count; i++)
+                    joltages[0, i] = Joltages[i];
+
+                return joltages;
+            }
+        }
 
         public MachineInfo(string line)
         {
@@ -181,8 +134,6 @@ namespace Day_10
             Buttons = new List<List<int>>();
             for (int i = 1; i < sections.Length - 1; i++)
                 Buttons.Add(sections[i].Substring(1, sections[i].Length - 2).Split(',').Select(int.Parse).ToList());
-
-            Program.QuickSort(Buttons, 0, Buttons.Count - 1);
 
             Joltages = sections[^1].Substring(1, sections[^1].Length - 2).Split(',').Select(int.Parse).ToList();
         }
